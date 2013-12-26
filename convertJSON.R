@@ -1,3 +1,6 @@
+#Written by Shafik Quoraishee 
+#GNNv2 License 2013
+
 options(echo=FALSE) # if you want see commands in output file
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -8,8 +11,11 @@ library("rjson")
 marketid <- as.integer(args[1])
 print(c("Current market id: ", marketid))
 
+#take market data url (Default: Cryptsy, to be made into an argument)
+sdata = c("http://pubapi.cryptsy.com/api.php?method=singlemarketdata&marketid=",marketid)
+
 #the location of the market data
-json_file <- paste("http://pubapi.cryptsy.com/api.php?method=singlemarketdata&marketid=",marketid)
+json_file <- paste(sdata[1],sdata[2],sep='')
 data = fromJSON(paste(readLines(json_file),collapse=""))
 
 #the different order categories in the file, de-list and convert to vector
