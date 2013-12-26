@@ -1,13 +1,13 @@
 TheGeorgeProject
 ================
 
-This is a project that if you ask to many questions about, your head will explode and your body will spontaneoulsy combust
+This is a project that if you ask to many questions about, your head will explode and your body will spontaneoulsy combust!!!!!!!!
 
 
 Introduction
 ============
 
-If you don't know, then don't ask.  In order to run this script you need to install in r, the json library.  
+If you don't know, then don't ask.  In order to run this script you need to install the json library. In your R editor, run the following command:  install.packages("rjson").   
 
 
 Execution
