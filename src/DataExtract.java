@@ -6,7 +6,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -28,35 +32,49 @@ public class DataExtract {
 	//Test some file stream stuff
 	FileOutputStream out;
 	
-	//Final file name 
-	String CSVname = "out.txt";
 	
 	public static void main(String args[]) throws Exception {
 		
-		int interval;
+		int interval = 0;
+		String CSVName = "";
 		
-		//we automaticaly assume the second argument is 0
-		if(args.length == 0)
-			interval = 1000;
-		else
-			interval = Integer.parseInt(args[0]);
+		//make assumptions about the arguments
+		switch(args.length) {
+		
+			case 0 : {
+				interval = 1000;
+				CSVName = "data.csv";
+				break;
+			}
+			case 1 : {
+				interval = Integer.parseInt(args[0]);
+				CSVName = "data.csv";
+				break;
+			}
+			case 2 : {
+				interval = Integer.parseInt(args[1]);
+				CSVName = args[2];
+				break;
+			}
+
+		}
 		
 		//remmeber you can construct a non static reference of the class witing the clas sbut htis is th eonly non static referecne
-		DataExtract http = new DataExtract(interval);
+		DataExtract http = new DataExtract(interval,CSVName);
 		
 		http.start();
 		//http.sendGet("btc","cny");
 		
 	}
 	
-	DataExtract(final int interval) {
+	DataExtract(final int interval,String fileName) {
 		
 		//init data array
 		dataList = new ArrayList<JSONObject>();
 		
 		//output file stream for appending data
 				try {
-					out = new FileOutputStream(CSVname);
+					out = new FileOutputStream(fileName);
 				} catch (FileNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -68,11 +86,15 @@ public class DataExtract {
 			@Override
 			public void run() {
 				
-				String dataColumn = "";
+				//get the current formatted time stamp
+				DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+				Date date = new Date();
+				
+				String dataColumn = "Timestamp,";
 				
 				//add initital table
 				for (String cur : currencyList) {
-					dataColumn += cur + " ";
+					dataColumn += cur + ",";
 				}
 				
 				addDataToCSV(dataColumn);
@@ -81,7 +103,7 @@ public class DataExtract {
 				while(true){ 
 					try {
 						Thread.sleep(interval);
-						dataColumn = "";
+						dataColumn = dateFormat.format(date) + ",";	//we use the dat format object to convert the date arument into the resultant string forma
 						for (String cur : currencyList) {
 							dataColumn += obtainPrice(sendGet(cur,"btc"));
 						}
