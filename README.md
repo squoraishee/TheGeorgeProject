@@ -11,4 +11,4 @@ but can be easily extended to obtain all the JSON data. The binary lives in the 
 
 Usage:
 
-java -jar btcDataExtract <interval> <output.csv>
+`java -jar btcDataExtract <interval> <output.csv>`
