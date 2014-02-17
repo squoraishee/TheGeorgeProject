@@ -119,6 +119,7 @@ public class DataExtract {
 				while(true){ 
 					try {
 						Thread.sleep(interval);
+						date = new Date();
 						dataColumn = dateFormat.format(date) + ",";	//we use the dat format object to convert the date arument into the resultant string forma
 						for (String cur : currencyList) {
 							dataColumn += obtainPrice(sendGet(cur,"btc"));
