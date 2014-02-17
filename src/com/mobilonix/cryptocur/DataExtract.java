@@ -27,17 +27,27 @@ public class DataExtract {
 	ArrayList<JSONObject> dataList;
 	
 	//Currency List
-	//String [] currencyList = {"ltc","bqc","btb","buk","cdc","cmc","cnc","dgc","doge","dtc","exc","frc","max","mec","mmc","nec","nmc","nxt","ppc","pts","qrk","src","tag","yac","vtc","wdc","xpm","zcc","zet"};
-	String [] currencyList = {"ltc","bqc","btb","buk"};
+	String [] currencyList = {"ltc","bqc","btb","buk","cdc","cmc","cnc","dgc","doge","dtc","exc","frc","max","mec","mmc","nec","nmc","nxt","ppc","pts","qrk","src","tag","yac","vtc","wdc","xpm","zcc","zet"};
 	
 	//Test some file stream stuff
 	FileOutputStream out;
 	
+	//Display debug
+	boolean displayDebug = true;
+	
+	//ticker URL
+	static String TICKER_URL = "http://data.bter.com/api/1/ticker/";
+	
+	//data URL, inter-changeable
+	String DATA_URL = "";
 	
 	public static void main(String args[]) throws Exception {
+
 		
 		int interval = 0;
 		String CSVName = "";
+		
+		System.out.println("Collecting currency/btc data. " + args.length + " arguments available...");
 		
 		//make assumptions about the arguments
 		switch(args.length) {
@@ -60,15 +70,20 @@ public class DataExtract {
 
 		}
 		
-		//remmeber you can construct a non static reference of the class witing the clas sbut htis is th eonly non static referecne
-		DataExtract http = new DataExtract(interval,CSVName);
+		//create self-instance to circumvent static entry point
+		DataExtract dataExtractor = new DataExtract(interval,CSVName);
 		
-		http.start();
+		//start data extraction process
+		dataExtractor.start();
 		//http.sendGet("btc","cny");
 		
 	}
 	
-	DataExtract(final int interval,String fileName) {
+	//constructor
+	public DataExtract(final int interval,String fileName) {
+		
+		//by default chose the ticker URL
+		DATA_URL = TICKER_URL;
 		
 		//init data array
 		dataList = new ArrayList<JSONObject>();
@@ -91,7 +106,7 @@ public class DataExtract {
 				DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 				Date date = new Date();
 				
-				String dataColumn = "Timestamp,";
+				String dataColumn = "Local Timestamp,";
 				
 				//add initital table
 				for (String cur : currencyList) {
@@ -125,6 +140,7 @@ public class DataExtract {
 		
 	}
 	
+	//start execution cycle
 	void start() {
 		dataExtractionThread.start();
 	}
@@ -132,7 +148,7 @@ public class DataExtract {
 	// HTTP GET request
 		private String sendGet(String currency1, String currency2) throws Exception {
 	 
-			String url = "http://data.bter.com/api/1/ticker/" + currency1 + "_" + currency2;
+			String url = DATA_URL + currency1 + "_" + currency2;
 			//url = "http://www.google.com";
 			
 			URL obj = new URL(url);
