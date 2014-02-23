@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -36,14 +37,21 @@ public class DataExtract {
 	boolean displayDebug = true;
 	
 	//ticker URL
-	static String TICKER_URL = "http://data.bter.com/api/1/ticker/";
+	static String TICKER_API_URL = "http://data.bter.com/api/1/ticker/";
+	static String TRADE_API_URL = "http://data.bter.com/api/1/trade/";
 	
 	//data URL, inter-changeable
 	String DATA_URL = "";
 	
+	//data item to tabulate a list for
+	String dataItem = "buy";
+	
+	//total list of allowed data items
+	ArrayList<String> dataItemList;
+	
 	public static void main(String args[]) throws Exception {
 
-		
+		String item = "buy";
 		int interval = 0;
 		String CSVName = "";
 		
@@ -55,47 +63,64 @@ public class DataExtract {
 			case 0 : {
 				interval = 1000;
 				CSVName = "data.csv";
+				item = "buy";
 				break;
 			}
 			case 1 : {
-				interval = Integer.parseInt(args[0]);
+				interval = 1000; 
 				CSVName = "data.csv";
+				item = args[0];
 				break;
 			}
 			case 2 : {
 				interval = Integer.parseInt(args[1]);
+				CSVName = "data.csv";
+				item = args[0];
+				break;
+			}
+			case 3 : {
+				interval = Integer.parseInt(args[1]);
 				CSVName = args[2];
+				item = args[0];
 				break;
 			}
 
 		}
 		
+		
+		System.out.println("Initalizing data extractor...");
+		System.out.println("Extracting category: " + item);
 		//create self-instance to circumvent static entry point
-		DataExtract dataExtractor = new DataExtract(interval,CSVName);
+		DataExtract dataExtractor = new DataExtract(interval,CSVName,item);
 		
 		//start data extraction process
 		dataExtractor.start();
 		//http.sendGet("btc","cny");
-		
+		//bjjdhsj
 	}
 	
 	//constructor
-	public DataExtract(final int interval,String fileName) {
+	public DataExtract(final int interval,String fileName,String item) {
 		
 		//by default chose the ticker URL
-		DATA_URL = TICKER_URL;
+		DATA_URL = TICKER_API_URL;
+		
+		//get all available data Items
+		populateDataItemList();
 		
 		//init data array
 		dataList = new ArrayList<JSONObject>();
 		
 		//output file stream for appending data
-				try {
-					out = new FileOutputStream(fileName);
-				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-		
+		try {
+			
+			//volume tables
+			out = new FileOutputStream(fileName);
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+				
 		//repeat data extraction over and over
 		dataExtractionThread = new Thread(new Runnable() {
 
@@ -110,19 +135,34 @@ public class DataExtract {
 				
 				//add initital table
 				for (String cur : currencyList) {
-					dataColumn += cur + ",";
+					dataColumn += cur + " Time, " + cur + " Order Id, " + cur + " Volume, " + cur + " BTC Volume, " + cur + " Price, " + cur + " Order Type";
 				}
 				
+				//add item to table
 				addDataToCSV(dataColumn);
 
-				
+				//rinse wash repeat
 				while(true){ 
 					try {
 						Thread.sleep(interval);
 						date = new Date();
-						dataColumn = dateFormat.format(date) + ",";	//we use the dat format object to convert the date arument into the resultant string forma
+						dataColumn = dateFormat.format(date
+								
+								) + ",";	//we use the dat format object to convert the date arument into the resultant string forma
 						for (String cur : currencyList) {
-							dataColumn += obtainPrice(sendGet(cur,"btc"));
+							
+							//combine column data from all relavent URLs here
+							String tickerResponse = sendGet(TICKER_API_URL,cur,"btc");
+							String tradeResponse = sendGet(TRADE_API_URL,cur,"btc");
+							
+							//making a BIG assumption AND approximation that the latest trade on both APIs correpsonds to the same data
+							dataColumn += obtainMarketTime(tradeResponse);
+							dataColumn += obtainOrderId(tradeResponse);
+							dataColumn += obtainVolumeNumerator(tickerResponse,cur);
+							dataColumn += obtainVolumeDenominator(tickerResponse);
+							dataColumn += obtainOrderType(tradeResponse);
+							dataColumn += obtainPrice(tradeResponse);
+							
 						}
 						addDataToCSV(dataColumn);
 					} catch (InterruptedException e) {
@@ -137,8 +177,49 @@ public class DataExtract {
 			
 		});
 		
+	}
+	
+	//will convert to feed read string
+	public void populateDataItemList() {
 		
 		
+		/* Example ticker currencey return
+		{
+			result: "true",
+			last: "0.00000210",
+			high: "0.00000217",
+			low: "0.00000209",
+			avg: "0.00000212",
+			sell: "0.00000210",
+			buy: "0.00000210",
+			vol_doge: 158564482.398,
+			vol_btc: 336.03439485
+		}
+		*/
+		dataItemList = new ArrayList<String>();
+		
+		dataItemList.add("last");
+		dataItemList.add("high");
+		dataItemList.add("low");
+		dataItemList.add("avg");
+		dataItemList.add("sell");
+		dataItemList.add("buy");
+		
+	}
+	
+	//test if the Argument is within the bounds off acceptable JSON keys
+	public String checkDataItemArgument(String arg){
+		
+		System.out.println("Checking for a valid argument...");
+		
+		for(int i = 0; i < dataItemList.size(); i++) {
+			if (arg == dataItemList.get(i)) {
+				return dataItemList.get(i);
+			}
+		}
+		
+		//assume the buy key always exists
+		return "buy";
 	}
 	
 	//start execution cycle
@@ -146,11 +227,13 @@ public class DataExtract {
 		dataExtractionThread.start();
 	}
 	
-	// HTTP GET request
-		private String sendGet(String currency1, String currency2) throws Exception {
-	 
-			String url = DATA_URL + currency1 + "_" + currency2;
-			//url = "http://www.google.com";
+		// ***************************************HTTP REQUEST METHODS*****************************************/
+		private String sendGet(String dataURL, String currency1, String currency2) throws Exception {
+			
+			//Construct URL
+			String url = dataURL + currency1 + "_" + currency2;
+			
+			System.out.println("Sending request to: " + url);
 			
 			URL obj = new URL(url);
 			HttpURLConnection con = (HttpURLConnection) obj.openConnection();
@@ -163,8 +246,7 @@ public class DataExtract {
 	 
 			int responseCode = con.getResponseCode();
 			//System.out.println("\nSending 'GET' request to URL : " + url);
-			//System.out.println("Response Code : " + responseCode);
-	 
+			
 			BufferedReader in = new BufferedReader(
 			        new InputStreamReader(con.getInputStream()));
 			String inputLine;
@@ -184,14 +266,22 @@ public class DataExtract {
 			return result; //will return all the relavent data to put into a table
 		}
 		
-		public String obtainPrice(String result) {
+		/************************************************CATEGORY PARSING METHODS*************************************************/
+		
+		public String obtainOrderType(String result) {
 			
+			//in order to get a JSON array you can get it from anywhere in the object no  matter how far it's nested
 			
 			JSONObject fullData;
 			try {
 				fullData = new JSONObject(result);
+				JSONArray dataArray = fullData.getJSONArray("data");
+				
+				//get the object at the bottom of the trade API feed (Should be the latest)
+				JSONObject category = dataArray.getJSONObject(dataArray.length() - 1);
+				
 				//return (String) fullData.get("buy");
-				return (Object)fullData.get("buy") + ",";
+				return (String)category.get("type") + ",";
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -199,6 +289,110 @@ public class DataExtract {
 			
 			return "Error" + ",";
 		}
+		
+		public String obtainOrderId(String result) {
+			
+			//in order to get a JSON array you can get it from anywhere in the object no  matter how far it's nested
+			
+			JSONObject fullData;
+			try {
+				fullData = new JSONObject(result);
+				JSONArray dataArray = fullData.getJSONArray("data");
+				
+				//get the object at the bottom of the trade API feed (Should be the latest)
+				JSONObject category = dataArray.getJSONObject(dataArray.length() - 1);
+				
+				//return (String) fullData.get("buy");
+				return (String)category.get("tid") + ",";
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return "Error" + ",";
+		}
+		
+		
+		public String obtainVolumeDenominator(String result) {
+			
+			
+			JSONObject fullData;
+			try {
+				fullData = new JSONObject(result);
+				//return (String) fullData.get("buy");
+				return (Object)fullData.get("vol_btc") + ",";
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return "Error" + ",";
+		}
+		
+		public String obtainVolumeNumerator(String result, String cur) {
+			
+			
+			
+			JSONObject fullData;
+			try {
+				fullData = new JSONObject(result);
+				//return (String) fullData.get("buy");
+				return (Object)fullData.get("vol_" + cur) + ",";
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return "Error" + ",";
+		}
+		
+		//get last market time.  Note this may not correlate between each API
+		public String obtainMarketTime(String result) {
+			
+			//in order to get a JSON array you can get it from anywhere in the object no  matter how far it's nested
+			
+			JSONObject fullData;
+			try {
+				fullData = new JSONObject(result);
+				JSONArray dataArray = fullData.getJSONArray("data");
+				
+				//get the object at the bottom of the trade API feed (Should be the latest)
+				JSONObject category = dataArray.getJSONObject(dataArray.length() - 1);
+				
+				//return (String) fullData.get("buy");
+				return (Object)category.get("date") + ",";
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return "Error" + ",";
+		}
+		
+		public String obtainPrice(String result) {
+			
+			
+			//in order to get a JSON array you can get it from anywhere in the object no  matter how far it's nested
+			
+			JSONObject fullData;
+			try {
+				fullData = new JSONObject(result);
+				JSONArray dataArray = fullData.getJSONArray("data");
+				
+				//get the object at the bottom of the trade API feed (Should be the latest)
+				JSONObject category = dataArray.getJSONObject(dataArray.length() - 1);
+				
+				//return (String) fullData.get("buy");
+				return (Object)category.get("price") + ",";
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return "Error" + ",";
+		}
+		
+		/*******************************************AUXILLARY METHODS*************************************************/
 		
 		//add the data row to the CSV file
 		void addDataToCSV(String result) {
