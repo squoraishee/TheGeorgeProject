@@ -29,4 +29,4 @@ The latest version of java installed.
 Usage
 =====
 
-`java -jar extract <category> <interval> <output.csv>`
+`java -jar extractData <category> <interval> <output.csv>`
